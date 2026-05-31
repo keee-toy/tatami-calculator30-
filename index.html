@@ -13,6 +13,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   background:#f2f2f2;
   padding:16px;
+  margin:0;
 }
 
 h2 {
@@ -44,10 +45,6 @@ button {
   color:#fff;
 }
 
-button:hover {
-  opacity:0.9;
-}
-
 .result {
   line-height:1.8;
   font-size:16px;
@@ -61,10 +58,65 @@ strong {
   display:flex;
   gap:10px;
 }
+
+/* ロック画面 */
+#lockScreen {
+  min-height:100vh;
+  margin:-16px;
+  padding:16px;
+  box-sizing:border-box;
+
+  background-image:url("lock-bg.jpg");
+  background-size:cover;
+  background-position:center;
+  background-repeat:no-repeat;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.lock-box {
+  width:100%;
+  max-width:420px;
+  background:rgba(255,255,255,0.88);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  padding:20px;
+  border-radius:16px;
+  box-shadow:0 8px 30px rgba(0,0,0,0.18);
+}
+
+.lock-box h2 {
+  text-align:center;
+  margin-top:0;
+}
+
+#app {
+  display:none;
+}
+
+.error {
+  color:#d00;
+  margin-top:10px;
+  text-align:center;
+}
 </style>
 </head>
 
 <body>
+
+<div id="lockScreen">
+  <div class="lock-box">
+    <h2>ロック解除</h2>
+    <label>パスコード</label>
+    <input type="password" id="pinInput" inputmode="numeric" placeholder="4桁のPIN">
+    <button id="unlockBtn">解除</button>
+    <div id="pinError" class="error"></div>
+  </div>
+</div>
+
+<div id="app">
 
 <h2>絨毯 畳数・金額計算</h2>
 
@@ -109,8 +161,51 @@ strong {
 
 <div class="box result" id="discountResult" style="display:none;"></div>
 
+</div>
+
 <script>
-const TAX = 0.1;
+const PIN_CODE = "3579";
+const UNLOCK_KEY = "carpetAppUnlockedDate";
+
+const lockScreen = document.getElementById("lockScreen");
+const app = document.getElementById("app");
+const pinInput = document.getElementById("pinInput");
+const unlockBtn = document.getElementById("unlockBtn");
+const pinError = document.getElementById("pinError");
+
+function getTodayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+function showApp() {
+  lockScreen.style.display = "none";
+  app.style.display = "block";
+}
+
+function checkDailyUnlock() {
+  if (localStorage.getItem(UNLOCK_KEY) === getTodayKey()) {
+    showApp();
+  }
+}
+
+unlockBtn.addEventListener("click", () => {
+  if (pinInput.value === PIN_CODE) {
+    localStorage.setItem(UNLOCK_KEY, getTodayKey());
+    showApp();
+  } else {
+    pinError.textContent = "パスコードが違います";
+    pinInput.value = "";
+  }
+});
+
+pinInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    unlockBtn.click();
+  }
+});
+
+checkDailyUnlock();
 
 const SHOPS = {
   musashiya: {
@@ -124,7 +219,6 @@ const SHOPS = {
       dantsu: { label: "段通", price: 2300 }
     }
   },
-
   royal: {
     name: "ロイヤル",
     baseType: "retail",
@@ -135,7 +229,6 @@ const SHOPS = {
       mat: { label: "段通マット", price: 4300 }
     }
   },
-
   kikusuisha: {
     name: "菊水舎",
     baseType: "cost",
@@ -151,7 +244,6 @@ const SHOPS = {
       silkmat: { label: "シルクマット・段通マット", price: 1200 }
     }
   },
-
   koyanagi: {
     name: "小柳商事",
     baseType: "cost",
@@ -166,7 +258,6 @@ const SHOPS = {
       dantsumat: { label: "段通マット", price: 1300 }
     }
   },
-
   otaki: {
     name: "大滝",
     baseType: "cost",
@@ -179,7 +270,6 @@ const SHOPS = {
       dantsumat: { label: "段通マット", price: 1150 }
     }
   },
-
   general: {
     name: "一般",
     baseType: "cost",
@@ -188,7 +278,6 @@ const SHOPS = {
       normal: { label: "通常", price: 800 }
     }
   },
-
   diamonddry: {
     name: "ダイヤドライ",
     baseType: "cost",
@@ -222,7 +311,6 @@ Object.entries(SHOPS).forEach(([key, shop]) => {
 
 function updateTypes() {
   const shop = SHOPS[shopSelect.value];
-
   typeSelect.innerHTML = "";
 
   Object.entries(shop.types).forEach(([k, t]) => {
@@ -241,7 +329,6 @@ function roundTatami(t) {
 
   if (d < 0.25) return b;
   if (d < 0.65) return b + 0.5;
-
   return b + 1;
 }
 
@@ -288,6 +375,8 @@ function calc() {
 
   if (!data) {
     result.innerHTML = "数値を入力してください";
+    discountResult.style.display = "none";
+    discountResult.innerHTML = "";
     return;
   }
 
@@ -336,14 +425,12 @@ discountBtn.addEventListener("click", () => {
 
 discountSelect.addEventListener("change", () => {
   if (!discountSelect.value) return;
-
   showDiscount(+discountSelect.value);
 });
 
 discount30Btn.addEventListener("click", () => {
   discountSelectBox.style.display = "none";
   discountSelect.value = "";
-
   showDiscount(0.3);
 });
 
