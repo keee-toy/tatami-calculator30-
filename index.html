@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>絨毯 畳数・金額計算</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#007aff">
+
+<style>
+body {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background:#f2f2f2;
+  padding:16px;
+}
+h2 { margin-bottom:12px }
+.box {
+  background:#fff;
+  padding:16px;
+  border-radius:10px;
+  margin-bottom:12px;
+}
+select, input {
+  width:100%;
+  font-size:16px;
+  padding:10px;
+  margin-top:6px;
+}
+.result {
+  line-height:1.8;
+  font-size:16px;
+}
+strong { font-size:17px }
+</style>
+</head>
+
+<body>
+
+<h2>絨毯 畳数・金額計算</h2>
+
+<div class="box">
+  <label>店舗</label>
+  <select id="shopSelect"></select>
+
+  <label>種類</label>
+  <select id="typeSelect"></select>
+</div>
+
+<div class="box">
+  <label>縦（cm）</label>
+  <input type="number" id="length">
+  <label>横（cm）</label>
+  <input type="number" id="width">
+</div>
+
+<div class="box result" id="result">
+  数値を入力してください
+</div>
+
+<script>
+const TAX = 0.1;
+
+const SHOPS = {
+  musashiya: {
+    name: "武蔵屋",
+    baseType: "cost",
+    taxIncluded: false,
+    types: {
+      normal: { label: "通常", price: 1000 },
+      wool: { label: "ウール・シルク・レーヨン", price: 1150 },
+      electric: { label: "電気カーペット", price: 1150 },
+      dantsu: { label: "段通", price: 2300 }
+    }
+  },
+  royal: {
+    name: "ロイヤル",
+    baseType: "retail",
+    taxIncluded: true,
+    types: {
+      normal: { label: "通常", price: 1700 },
+      persian: { label: "ペルシャ・段通", price: 4300 },
+      mat: { label: "段通マット", price: 4300 }
+    }
+  },
+  kikusuisha: {
+    name: "菊水舎",
+    baseType: "cost",
+    taxIncluded: false,
+    types: {
+      normal: { label: "通常", price: 800 },
+      shaggy: { label: "シャギー・ラグ", price: 800 },
+      wool: { label: "ウール・シルク・レーヨン", price: 1000 },
+      electric: { label: "電気カーペット", price: 1000 },
+      dantsu: { label: "段通", price: 2000 },
+      persian: { label: "ペルシャ", price: 5000 },
+      mat: { label: "マット", price: 600 },
+      silkmat: { label: "シルクマット・段通マット", price: 1200 }
+    }
+  },
+  koyanagi: {
+    name: "小柳商事",
+    baseType: "cost",
+    taxIncluded: false,
+    types: {
+      normal: { label: "通常", price: 900 },
+      shaggy: { label: "シャギー・ラグ", price: 1140 },
+      wool: { label: "ウール・シルク・レーヨン", price: 1140 },
+      electric: { label: "電気カーペット", price: 1300 },
+      dantsu: { label: "段通", price: 2300 },
+      mat: { label: "マット", price: 800 },
+      dantsumat: { label: "段通マット", price: 1300 }
+    }
+  },
+  otaki: {
+    name: "大滝",
+    baseType: "cost",
+    taxIncluded: false,
+    types: {
+      normal: { label: "通常", price: 800 },
+      wool: { label: "ウール・シルク・レーヨン", price: 1150 },
+      shaggy: { label: "シャギー・ラグ", price: 1030 },
+      mat: { label: "マット", price: 920 },
+      dantsumat: { label: "段通マット", price: 1150 }
+    }
+  },
+  general: {
+    name: "一般",
+    baseType: "cost",
+    taxIncluded: false,
+    types: {
+      normal: { label: "通常", price: 800 }
+    }
+  },
+  diamonddry: {
+    name: "ダイヤドライ",
+    baseType: "cost",
+    taxIncluded: false,
+    types: {
+      normal: { label: "通常（水洗い）", price: 800 },
+      carpet: { label: "絨毯", price: 1150 },
+      rug: { label: "ラグ", price: 950 }
+    }
+  }
+};
+
+const shopSelect = document.getElementById("shopSelect");
+const typeSelect = document.getElementById("typeSelect");
+const lengthInput = document.getElementById("length");
+const widthInput = document.getElementById("width");
+const result = document.getElementById("result");
+
+Object.entries(SHOPS).forEach(([key, shop]) => {
+  const opt = document.createElement("option");
+  opt.value = key;
+  opt.textContent = shop.name;
+  shopSelect.appendChild(opt);
+});
+
+function updateTypes() {
+  const shop = SHOPS[shopSelect.value];
+  typeSelect.innerHTML = "";
+  Object.entries(shop.types).forEach(([k, t]) => {
+    const opt = document.createElement("option");
+    opt.value = k;
+    opt.textContent = t.label;
+    typeSelect.appendChild(opt);
+  });
+  calc();
+}
+
+function roundTatami(t) {
+  const b = Math.floor(t);
+  const d = t - b;
+  if (d < 0.25) return b;
+  if (d < 0.65) return b + 0.5;
+  return b + 1;
+}
+
+function normalizeToCost(price, shop) {
+  let p = price;
+  if (shop.taxIncluded) p /= 1.1;
+  if (shop.baseType === "retail") p /= 2;
+  return p;
+}
+
+function calc() {
+  const l = +lengthInput.value;
+  const w = +widthInput.value;
+  if (!l || !w) return;
+
+  const area = (l * w) / 10000;
+  const tatami = area / 1.62;
+  const order = roundTatami(tatami);
+
+  const shop = SHOPS[shopSelect.value];
+  const type = shop.types[typeSelect.value];
+
+  const cost = order * normalizeToCost(type.price, shop);
+  const costTax = cost * 1.1;
+  const retail = cost * 2;
+  const retailTax = retail * 1.1;
+
+  result.innerHTML = `
+    面積：${area.toFixed(2)}㎡<br>
+    実畳数：${tatami.toFixed(2)}畳<br>
+    <strong>発注畳数：${order.toFixed(1)}畳</strong><br><br>
+
+    下代（税抜）：${cost.toLocaleString()}円<br>
+    下代（税込）：${costTax.toLocaleString()}円<br>
+    <strong>上代（税抜）：${retail.toLocaleString()}円</strong><br>
+    <strong>上代（税込）：${retailTax.toLocaleString()}円</strong>
+  `;
+}
+
+shopSelect.addEventListener("change", updateTypes);
+typeSelect.addEventListener("change", calc);
+[lengthInput, widthInput].forEach(el =>
+  el.addEventListener("input", calc)
+);
+
+updateTypes();
+</script>
+
+</body>
+</html>
