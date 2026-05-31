@@ -14,24 +14,53 @@ body {
   background:#f2f2f2;
   padding:16px;
 }
-h2 { margin-bottom:12px }
+
+h2 {
+  margin-bottom:12px;
+}
+
 .box {
   background:#fff;
   padding:16px;
   border-radius:10px;
   margin-bottom:12px;
 }
-select, input {
+
+select,
+input,
+button {
   width:100%;
   font-size:16px;
   padding:10px;
   margin-top:6px;
+  box-sizing:border-box;
 }
+
+button {
+  cursor:pointer;
+  border:none;
+  border-radius:8px;
+  background:#007aff;
+  color:#fff;
+}
+
+button:hover {
+  opacity:0.9;
+}
+
 .result {
   line-height:1.8;
   font-size:16px;
 }
-strong { font-size:17px }
+
+strong {
+  font-size:17px;
+}
+
+.button-group {
+  display:flex;
+  gap:10px;
+}
 </style>
 </head>
 
@@ -50,6 +79,7 @@ strong { font-size:17px }
 <div class="box">
   <label>縦（cm）</label>
   <input type="number" id="length">
+
   <label>横（cm）</label>
   <input type="number" id="width">
 </div>
@@ -57,6 +87,27 @@ strong { font-size:17px }
 <div class="box result" id="result">
   数値を入力してください
 </div>
+
+<div class="box">
+  <div class="button-group">
+    <button id="discountBtn">割引ボタン</button>
+    <button id="discount30Btn">3割引き</button>
+  </div>
+
+  <div id="discountSelectBox" style="display:none; margin-top:12px;">
+    <label>割引率</label>
+    <select id="discountSelect">
+      <option value="">選択してください</option>
+      <option value="0.1">1割引き</option>
+      <option value="0.2">2割引き</option>
+      <option value="0.3">3割引き</option>
+      <option value="0.4">4割引き</option>
+      <option value="0.5">5割引き</option>
+    </select>
+  </div>
+</div>
+
+<div class="box result" id="discountResult" style="display:none;"></div>
 
 <script>
 const TAX = 0.1;
@@ -73,6 +124,7 @@ const SHOPS = {
       dantsu: { label: "段通", price: 2300 }
     }
   },
+
   royal: {
     name: "ロイヤル",
     baseType: "retail",
@@ -83,6 +135,7 @@ const SHOPS = {
       mat: { label: "段通マット", price: 4300 }
     }
   },
+
   kikusuisha: {
     name: "菊水舎",
     baseType: "cost",
@@ -98,6 +151,7 @@ const SHOPS = {
       silkmat: { label: "シルクマット・段通マット", price: 1200 }
     }
   },
+
   koyanagi: {
     name: "小柳商事",
     baseType: "cost",
@@ -112,6 +166,7 @@ const SHOPS = {
       dantsumat: { label: "段通マット", price: 1300 }
     }
   },
+
   otaki: {
     name: "大滝",
     baseType: "cost",
@@ -124,6 +179,7 @@ const SHOPS = {
       dantsumat: { label: "段通マット", price: 1150 }
     }
   },
+
   general: {
     name: "一般",
     baseType: "cost",
@@ -132,6 +188,7 @@ const SHOPS = {
       normal: { label: "通常", price: 800 }
     }
   },
+
   diamonddry: {
     name: "ダイヤドライ",
     baseType: "cost",
@@ -150,6 +207,12 @@ const lengthInput = document.getElementById("length");
 const widthInput = document.getElementById("width");
 const result = document.getElementById("result");
 
+const discountBtn = document.getElementById("discountBtn");
+const discount30Btn = document.getElementById("discount30Btn");
+const discountSelectBox = document.getElementById("discountSelectBox");
+const discountSelect = document.getElementById("discountSelect");
+const discountResult = document.getElementById("discountResult");
+
 Object.entries(SHOPS).forEach(([key, shop]) => {
   const opt = document.createElement("option");
   opt.value = key;
@@ -159,35 +222,43 @@ Object.entries(SHOPS).forEach(([key, shop]) => {
 
 function updateTypes() {
   const shop = SHOPS[shopSelect.value];
+
   typeSelect.innerHTML = "";
+
   Object.entries(shop.types).forEach(([k, t]) => {
     const opt = document.createElement("option");
     opt.value = k;
     opt.textContent = t.label;
     typeSelect.appendChild(opt);
   });
+
   calc();
 }
 
 function roundTatami(t) {
   const b = Math.floor(t);
   const d = t - b;
+
   if (d < 0.25) return b;
   if (d < 0.65) return b + 0.5;
+
   return b + 1;
 }
 
 function normalizeToCost(price, shop) {
   let p = price;
+
   if (shop.taxIncluded) p /= 1.1;
   if (shop.baseType === "retail") p /= 2;
+
   return p;
 }
 
-function calc() {
+function getBaseValues() {
   const l = +lengthInput.value;
   const w = +widthInput.value;
-  if (!l || !w) return;
+
+  if (!l || !w) return null;
 
   const area = (l * w) / 10000;
   const tatami = area / 1.62;
@@ -201,23 +272,87 @@ function calc() {
   const retail = cost * 2;
   const retailTax = retail * 1.1;
 
-  result.innerHTML = `
-    面積：${area.toFixed(2)}㎡<br>
-    実畳数：${tatami.toFixed(2)}畳<br>
-    <strong>発注畳数：${order.toFixed(1)}畳</strong><br><br>
+  return {
+    area,
+    tatami,
+    order,
+    cost,
+    costTax,
+    retail,
+    retailTax
+  };
+}
 
-    下代（税抜）：${cost.toLocaleString()}円<br>
-    下代（税込）：${costTax.toLocaleString()}円<br>
-    <strong>上代（税抜）：${retail.toLocaleString()}円</strong><br>
-    <strong>上代（税込）：${retailTax.toLocaleString()}円</strong>
+function calc() {
+  const data = getBaseValues();
+
+  if (!data) {
+    result.innerHTML = "数値を入力してください";
+    return;
+  }
+
+  result.innerHTML = `
+    面積：${data.area.toFixed(2)}㎡<br>
+    実畳数：${data.tatami.toFixed(2)}畳<br>
+    <strong>発注畳数：${data.order.toFixed(1)}畳</strong><br><br>
+
+    下代（税抜）：${Math.round(data.cost).toLocaleString()}円<br>
+    下代（税込）：${Math.round(data.costTax).toLocaleString()}円<br>
+    <strong>上代（税抜）：${Math.round(data.retail).toLocaleString()}円</strong><br>
+    <strong>上代（税込）：${Math.round(data.retailTax).toLocaleString()}円</strong>
+  `;
+
+  discountResult.style.display = "none";
+  discountResult.innerHTML = "";
+}
+
+function showDiscount(rate) {
+  const data = getBaseValues();
+
+  if (!data) return;
+
+  const multiplier = 1 - rate;
+
+  const cost = data.cost * multiplier;
+  const costTax = data.costTax * multiplier;
+  const retail = data.retail * multiplier;
+  const retailTax = data.retailTax * multiplier;
+
+  discountResult.style.display = "block";
+
+  discountResult.innerHTML = `
+    <strong>${rate * 10}割引き後</strong><br><br>
+
+    下代（税抜）：${Math.round(cost).toLocaleString()}円<br>
+    下代（税込）：${Math.round(costTax).toLocaleString()}円<br>
+    <strong>上代（税抜）：${Math.round(retail).toLocaleString()}円</strong><br>
+    <strong>上代（税込）：${Math.round(retailTax).toLocaleString()}円</strong>
   `;
 }
 
+discountBtn.addEventListener("click", () => {
+  discountSelectBox.style.display = "block";
+});
+
+discountSelect.addEventListener("change", () => {
+  if (!discountSelect.value) return;
+
+  showDiscount(+discountSelect.value);
+});
+
+discount30Btn.addEventListener("click", () => {
+  discountSelectBox.style.display = "none";
+  discountSelect.value = "";
+
+  showDiscount(0.3);
+});
+
 shopSelect.addEventListener("change", updateTypes);
 typeSelect.addEventListener("change", calc);
-[lengthInput, widthInput].forEach(el =>
-  el.addEventListener("input", calc)
-);
+
+[lengthInput, widthInput].forEach(el => {
+  el.addEventListener("input", calc);
+});
 
 updateTypes();
 </script>
